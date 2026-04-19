@@ -10,10 +10,9 @@ if not api_key:
 try:
     response = requests.get("https://api.nasa.gov/planetary/apod?api_key=" + api_key + "&date=2025-4-1")
     
-    ratelimit = response.headers.get("X-Ratelimit-Limit", None)
-    ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", None)
-    if ratelimit and ratelimit_remaining:
-        print("Remaining rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit))
+    ratelimit = response.headers.get("X-Ratelimit-Limit", "Failed to load rate limit")
+    ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", "Failed to load remaining rate limit")
+    print("Remaining rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit))
         
     if response.status_code == 200:
         apod_data = response.json()
