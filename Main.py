@@ -43,7 +43,7 @@ def fetch_and_parse(db_name, db_table, url, db_insert, db_keys):
         raise Exception ("Connection failed!")
 
 
-fetch_and_parse("flr.db",
+fetch_and_parse("maindata.db",
                 
     """CREATE TABLE IF NOT EXISTS solar_flares (    
     flrID TEXT PRIMARY KEY,
@@ -98,3 +98,89 @@ fetch_and_parse("flr.db",
      "linkedEvents",
      "sentNotifications"])
 
+
+
+fetch_and_parse("maindata.db",
+                
+    """CREATE TABLE IF NOT EXISTS geomagnetic_storms (    
+    gstID TEXT PRIMARY KEY,
+    startTime TEXT NOT NULL,
+    allKpIndex TEXT NOT NULL,
+    link TEXT NOT NULL,
+    linkedEvents TEXT,
+    submissionTime TEXT NOT NULL,
+    versionId INTEGER NOT NULL,
+    sentNotifications TEXT)""",
+
+    "https://api.nasa.gov/DONKI/GST?api_key=",
+
+    """INSERT OR IGNORE INTO geomagnetic_storms (
+    gstID,
+    startTime,
+    allKpIndex,
+    link,
+    linkedEvents,
+    submissionTime,
+    versionId,
+    sentNotifications) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+
+    ["gstID",
+    "startTime",
+    "allKpIndex",
+    "link",
+    "linkedEvents",
+    "submissionTime",
+    "versionId",
+    "sentNotifications"])
+
+
+
+fetch_and_parse("maindata.db",
+                
+    """CREATE TABLE IF NOT EXISTS coronal_mass_ejection (    
+    activityID TEXT PRIMARY KEY,
+    catalog TEXT NOT NULL,
+    startTime TEXT NOT NULL,
+    instruments TEXT NOT NULL,
+    sourceLocation TEXT NOT NULL,
+    activeRegionNum INTEGER,
+    note TEXT,
+    submissionTime TEXT NOT NULL,
+    versionId INTEGER NOT NULL,
+    link TEXT NOT NULL,
+    cmeAnalyses TEXT NOT NULL,
+    linkedEvents TEXT,
+    sentNotifications TEXT)""",
+
+    "https://api.nasa.gov/DONKI/CME?api_key=",
+
+    """INSERT OR IGNORE INTO coronal_mass_ejection (
+    activityID,
+    catalog,
+    startTime,
+    instruments,
+    sourceLocation,
+    activeRegionNum,
+    note,
+    submissionTime,
+    versionId,
+    link,
+    cmeAnalyses,
+    linkedEvents,
+    sentNotifications) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+
+    ["activityID",
+    "catalog",
+    "startTime",
+    "instruments",
+    "sourceLocation",
+    "activeRegionNum",
+    "note",
+    "submissionTime",
+    "versionId",
+    "link",
+    "cmeAnalyses",
+    "linkedEvents",
+    "sentNotifications"])
