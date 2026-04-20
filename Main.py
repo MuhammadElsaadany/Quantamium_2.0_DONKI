@@ -3,9 +3,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+
 api_key = os.environ.get("NASA_API_KEY")
 if not api_key:
-    raise ValueError("Couldn't fetch NASA_API_KEY")
+    raise ValueError("Couldn't fetch NASA_API_KEY.")
+
 
 
 def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_keys):
@@ -62,6 +64,7 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
 
 
 
+
 def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  stringified_key, foreign_key):
 
     try:
@@ -90,6 +93,7 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
 
 
 
+
 def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primary_key2=None):
 
     try:
@@ -115,6 +119,7 @@ def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primar
         connection.commit()
     else:
         print("No other anomalies detected in: " + str(table_name) + ".")
+
 
 
 
@@ -179,6 +184,7 @@ fetch_and_parse(
 
 
 
+
 fetch_and_parse(
     "maindata.db",
                 
@@ -216,6 +222,7 @@ fetch_and_parse(
     "submissionTime",
     "versionId",
     "sentNotifications"])
+
 
 
 
@@ -274,6 +281,7 @@ fetch_and_parse(
 
 
 
+
 fetch_nested(
     "maindata.db",
              
@@ -300,6 +308,7 @@ fetch_nested(
 
 
 
+
 check_anomalies(
     "maindata.db",
 
@@ -310,6 +319,7 @@ check_anomalies(
     ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"],
 
     "flrID")
+
 
 
 
