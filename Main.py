@@ -14,21 +14,21 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
     except sqlite3.OperationalError as e1:
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_and_parse: " + str(e1) + ".")
     cursor = connection.cursor()
+    print("Started parsing: " + str(table_name) + ".")
     cursor.execute(db_create_table)
 
     try:
         response = requests.get(str(url) + api_key)
-        
         ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
         ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", "Failed to load remaining rate limit!")
-        print("Fetching & parsing: " + str(table_name) + ". Remaining rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum))
-            
+
         if response.status_code == 200:
             response_data = response.json()
             for i in response_data:
                 values = tuple(str(i[key]) if isinstance(i[key], list) else i[key] for key in db_keys)
                 cursor.execute(db_insert, values)
             connection.commit()
+            print("Finished parsing: " + str(table_name) + ". | Rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + "\n")
 
         elif response.status_code == 429:
             raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
@@ -58,6 +58,7 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
     nested = cursor.execute("SELECT " + str(stringified_key) + ", " + str(foreign_key) + " FROM " + str(parent_table_name)).fetchall()
 
     if nested:
+        print("Started fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + ".")
         for row in nested:
             if row[str(stringified_key)] is not None:
                 try:
@@ -68,6 +69,7 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
                 for reading in un_nested:
                     cursor.execute(db_insert, (row[str(foreign_key)], reading["observedTime"], reading["kpIndex"], reading["source"]))
         connection.commit()
+        print("Finished fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + "." + "\n")
 
 
 
@@ -92,7 +94,8 @@ def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primar
                 cursor.execute("UPDATE " + str(table_name) + " SET alerted = 1 WHERE " + str(primary_key) + " = ? AND " + str(primary_key2) + " = ?", (str(row[primary_key]), str(row[primary_key2])))
             print("---------")
         connection.commit()
-            
+    else:
+        print("No other anomalies detected in: " + str(table_name) + ".")
 
 
 
