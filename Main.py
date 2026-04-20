@@ -8,8 +8,11 @@ if not api_key:
     raise ValueError("Couldn't fetch NASA_API_KEY")
 
 
-def fetch_and_parse(db_name, db_create_table, url, db_insert, db_keys):
-    connection = sqlite3.connect(str(db_name))
+def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_keys):
+    try:
+        connection = sqlite3.connect(db_name)
+    except sqlite3.OperationalError as e1:
+        raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_and_parse: " + str(e1) + ".")
     cursor = connection.cursor()
     cursor.execute(db_create_table)
 
@@ -18,7 +21,7 @@ def fetch_and_parse(db_name, db_create_table, url, db_insert, db_keys):
         
         ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
         ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", "Failed to load remaining rate limit!")
-        print("Remaining rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum))
+        print("Fetching & parsing: " + str(table_name) + ". Remaining rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum))
             
         if response.status_code == 200:
             response_data = response.json()
@@ -28,7 +31,7 @@ def fetch_and_parse(db_name, db_create_table, url, db_insert, db_keys):
             connection.commit()
 
         elif response.status_code == 429:
-            raise Exception("Error: You've exceeded your rate limit! | status code: 429")
+            raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
         
         elif response.status_code == 404:
             raise Exception("Error: Not found! | status code: 404")
@@ -39,23 +42,29 @@ def fetch_and_parse(db_name, db_create_table, url, db_insert, db_keys):
         else:
             raise Exception("Error: One of the other 95316 status codes that I have no idea exists popped up! | status code: " + str(response.status_code))
         
-    except requests.exceptions.ConnectionError:
-        raise Exception ("Connection failed!")
+    except requests.exceptions.ConnectionError as e2:
+        raise requests.exceptions.ConnectionError("Connection failed: " + str(e2) + ".")
 
 
 
 def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  stringified_key, foreign_key):
-    connection = sqlite3.connect(db_name)
+    try:
+        connection = sqlite3.connect(db_name)
+    except sqlite3.OperationalError as e1:
+        raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_nested: " + str(e1) + ".")
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
     cursor.execute(db_create_table)
-
     nested = cursor.execute("SELECT " + str(stringified_key) + ", " + str(foreign_key) + " FROM " + str(parent_table_name)).fetchall()
 
     if nested:
         for row in nested:
             if row[str(stringified_key)] is not None:
-                un_nested = ast.literal_eval(row[str(stringified_key)])
+                try:
+                    un_nested = ast.literal_eval(row[str(stringified_key)])
+                except ValueError:
+                        print("Warning: Skipped one malformed row.")
+                        continue
                 for reading in un_nested:
                     cursor.execute(db_insert, (row[str(foreign_key)], reading["observedTime"], reading["kpIndex"], reading["source"]))
         connection.commit()
@@ -63,26 +72,33 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
 
 
 def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primary_key2=None):
-    connection = sqlite3.connect(db_name)
+    try:
+        connection = sqlite3.connect(db_name)
+    except sqlite3.OperationalError as e1:
+        raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with check_anomalies: " + str(e1) + ".")
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
     anomaly = cursor.execute(execute_call).fetchall()
+
     if anomaly:
         print("---------" + "\n" + "WARNING! SIGNIFICANT ANOMALIES DETECTED!" + "\n" + "---------")
         for row in anomaly:
-            print("anomalyCategory: " + str(table_name))
+            print("anomalyTable: " + str(table_name))
             for key in keys:
                 print(str(key) + ": " + str(row[key]))
             if primary_key and not primary_key2:
                 cursor.execute("UPDATE " + str(table_name) + " SET alerted = 1 WHERE " + str(primary_key) + " = ?", (str(row[primary_key]), ))
             elif primary_key and primary_key2:
                 cursor.execute("UPDATE " + str(table_name) + " SET alerted = 1 WHERE " + str(primary_key) + " = ? AND " + str(primary_key2) + " = ?", (str(row[primary_key]), str(row[primary_key2])))
-            connection.commit()
             print("---------")
+        connection.commit()
+            
 
 
 
 fetch_and_parse("maindata.db",
+                
+                "solar_flares",
                 
     """CREATE TABLE IF NOT EXISTS solar_flares (    
     flrID TEXT PRIMARY KEY,
@@ -142,6 +158,8 @@ fetch_and_parse("maindata.db",
 
 fetch_and_parse("maindata.db",
                 
+                "geomagnetic_storms",
+                
     """CREATE TABLE IF NOT EXISTS geomagnetic_storms (    
     gstID TEXT PRIMARY KEY,
     startTime TEXT NOT NULL,
@@ -178,6 +196,8 @@ fetch_and_parse("maindata.db",
 
 
 fetch_and_parse("maindata.db",
+                
+                "coronal_mass_ejections",
                 
     """CREATE TABLE IF NOT EXISTS coronal_mass_ejections (    
     activityID TEXT PRIMARY KEY,
@@ -254,5 +274,15 @@ fetch_nested("maindata.db",
 
 
 
-check_anomalies("maindata.db", "solar_flares", "SELECT * FROM solar_flares WHERE (classType LIKE 'X%' OR classType LIKE 'M5%' OR classType LIKE 'M6%' OR classType LIKE 'M7%' OR classType LIKE 'M8%' OR classType LIKE 'M9%') AND alerted = 0", ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"], "flrID")
-check_anomalies("maindata.db", "gst_kp_readings", "SELECT * FROM gst_kp_readings WHERE kpIndex > 7 AND alerted = 0", ["gstID", "observedTime", "kpIndex", "source"], "gstID", "observedTime")
+check_anomalies("maindata.db",
+                "solar_flares",
+                "SELECT * FROM solar_flares WHERE (classType LIKE 'X%' OR classType LIKE 'M5%' OR classType LIKE 'M6%' OR classType LIKE 'M7%' OR classType LIKE 'M8%' OR classType LIKE 'M9%') AND alerted = 0",
+                ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"],
+                "flrID")
+
+check_anomalies("maindata.db",
+                "gst_kp_readings",
+                "SELECT * FROM gst_kp_readings WHERE kpIndex > 7 AND alerted = 0",
+                ["gstID", "observedTime", "kpIndex", "source"],
+                "gstID",
+                "observedTime")
