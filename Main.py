@@ -11,6 +11,8 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s")
 
 
+logging.info("-----NEW RUN-----")
+
 
 api_key = os.environ.get("NASA_API_KEY")
 if not api_key:
@@ -34,7 +36,6 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
     seconds = 5
 
     while attempts_to_reconnect < 5:
-        
         try:
             response = requests.get(str(url) + api_key)
             ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
@@ -304,7 +305,7 @@ fetch_nested(
              
     "geomagnetic_storms",
              
-    """CREATE TABLE IF NOT EXISTS gst_kp_readings (    
+    """CREATE TABLE IF NOT EXISTS gst_kp_readings (
     gstID TEXT NOT NULL,
     observedTime TEXT NOT NULL,
     kpIndex REAL NOT NULL,
@@ -312,7 +313,7 @@ fetch_nested(
     alerted INTEGER DEFAULT 0,
     PRIMARY KEY (gstID, observedTime))""",
     
-    """INSERT OR IGNORE INTO gst_kp_readings (    
+    """INSERT OR IGNORE INTO gst_kp_readings (
     gstID,
     observedTime,
     kpIndex,
@@ -331,7 +332,14 @@ check_anomalies(
 
     "solar_flares",
 
-    "SELECT * FROM solar_flares WHERE (classType LIKE 'X%' OR classType LIKE 'M5%' OR classType LIKE 'M6%' OR classType LIKE 'M7%' OR classType LIKE 'M8%' OR classType LIKE 'M9%') AND alerted = 0",
+    """SELECT * FROM solar_flares 
+    WHERE (classType LIKE 'X%' OR 
+    classType LIKE 'M5%' OR 
+    classType LIKE 'M6%' OR 
+    classType LIKE 'M7%' OR 
+    classType LIKE 'M8%' OR 
+    classType LIKE 'M9%') 
+    AND alerted = 0""",
 
     ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"],
 
@@ -352,3 +360,7 @@ check_anomalies(
     "gstID",
 
     "observedTime")
+
+
+
+logging.info("-----END OF RUN-----")
