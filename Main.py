@@ -9,10 +9,12 @@ if not api_key:
 
 
 def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_keys):
+
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_and_parse: " + str(e1) + ".")
+    
     cursor = connection.cursor()
     print("Started parsing: " + str(table_name) + ".")
     cursor.execute(db_create_table)
@@ -20,6 +22,7 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
     seconds = 5
 
     while attempts_to_reconnect < 5:
+        
         try:
             response = requests.get(str(url) + api_key)
             ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
@@ -60,10 +63,12 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
 
 
 def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  stringified_key, foreign_key):
+
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_nested: " + str(e1) + ".")
+    
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
     cursor.execute(db_create_table)
@@ -86,10 +91,12 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
 
 
 def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primary_key2=None):
+
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with check_anomalies: " + str(e1) + ".")
+    
     connection.row_factory = sqlite3.Row
     cursor = connection.cursor()
     anomaly = cursor.execute(execute_call).fetchall()
@@ -111,9 +118,10 @@ def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primar
 
 
 
-fetch_and_parse("maindata.db",
+fetch_and_parse(
+    "maindata.db",
                 
-                "solar_flares",
+    "solar_flares",
                 
     """CREATE TABLE IF NOT EXISTS solar_flares (    
     flrID TEXT PRIMARY KEY,
@@ -171,9 +179,10 @@ fetch_and_parse("maindata.db",
 
 
 
-fetch_and_parse("maindata.db",
+fetch_and_parse(
+    "maindata.db",
                 
-                "geomagnetic_storms",
+    "geomagnetic_storms",
                 
     """CREATE TABLE IF NOT EXISTS geomagnetic_storms (    
     gstID TEXT PRIMARY KEY,
@@ -210,9 +219,10 @@ fetch_and_parse("maindata.db",
 
 
 
-fetch_and_parse("maindata.db",
+fetch_and_parse(
+    "maindata.db",
                 
-                "coronal_mass_ejections",
+    "coronal_mass_ejections",
                 
     """CREATE TABLE IF NOT EXISTS coronal_mass_ejections (    
     activityID TEXT PRIMARY KEY,
@@ -264,40 +274,54 @@ fetch_and_parse("maindata.db",
 
 
 
-fetch_nested("maindata.db",
+fetch_nested(
+    "maindata.db",
              
-             "geomagnetic_storms",
+    "geomagnetic_storms",
              
-            """CREATE TABLE IF NOT EXISTS gst_kp_readings (    
-            gstID TEXT NOT NULL,
-            observedTime TEXT NOT NULL,
-            kpIndex REAL NOT NULL,
-            source TEXT NOT NULL,
-            alerted INTEGER DEFAULT 0,
-            PRIMARY KEY (gstID, observedTime))""",
-            
-            """INSERT OR IGNORE INTO gst_kp_readings (    
-            gstID,
-            observedTime,
-            kpIndex,
-            source)
-            VALUES (?, ?, ?, ?)""",
-            
-            "allKpIndex",
-            
-            "gstID")
+    """CREATE TABLE IF NOT EXISTS gst_kp_readings (    
+    gstID TEXT NOT NULL,
+    observedTime TEXT NOT NULL,
+    kpIndex REAL NOT NULL,
+    source TEXT NOT NULL,
+    alerted INTEGER DEFAULT 0,
+    PRIMARY KEY (gstID, observedTime))""",
+    
+    """INSERT OR IGNORE INTO gst_kp_readings (    
+    gstID,
+    observedTime,
+    kpIndex,
+    source)
+    VALUES (?, ?, ?, ?)""",
+    
+    "allKpIndex",
+    
+    "gstID")
 
 
 
-check_anomalies("maindata.db",
-                "solar_flares",
-                "SELECT * FROM solar_flares WHERE (classType LIKE 'X%' OR classType LIKE 'M5%' OR classType LIKE 'M6%' OR classType LIKE 'M7%' OR classType LIKE 'M8%' OR classType LIKE 'M9%') AND alerted = 0",
-                ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"],
-                "flrID")
+check_anomalies(
+    "maindata.db",
 
-check_anomalies("maindata.db",
-                "gst_kp_readings",
-                "SELECT * FROM gst_kp_readings WHERE kpIndex > 7 AND alerted = 0",
-                ["gstID", "observedTime", "kpIndex", "source"],
-                "gstID",
-                "observedTime")
+    "solar_flares",
+
+    "SELECT * FROM solar_flares WHERE (classType LIKE 'X%' OR classType LIKE 'M5%' OR classType LIKE 'M6%' OR classType LIKE 'M7%' OR classType LIKE 'M8%' OR classType LIKE 'M9%') AND alerted = 0",
+
+    ["flrID", "beginTime", "classType", "sourceLocation", "activeRegionNum"],
+
+    "flrID")
+
+
+
+check_anomalies(
+    "maindata.db",
+
+    "gst_kp_readings",
+
+    "SELECT * FROM gst_kp_readings WHERE kpIndex > 7 AND alerted = 0",
+
+    ["gstID", "observedTime", "kpIndex", "source"],
+
+    "gstID",
+
+    "observedTime")
