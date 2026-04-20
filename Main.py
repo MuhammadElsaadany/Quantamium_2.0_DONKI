@@ -1,11 +1,20 @@
-import requests, os, sqlite3, ast, time
+import requests, os, sqlite3, ast, time, logging
 from dotenv import load_dotenv
+
 
 load_dotenv()
 
 
+logging.basicConfig(
+    filename="log.txt",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s")
+
+
+
 api_key = os.environ.get("NASA_API_KEY")
 if not api_key:
+    logging.error("Couldn't fetch NASA_API_KEY.")
     raise ValueError("Couldn't fetch NASA_API_KEY.")
 
 
@@ -15,10 +24,11 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
+        logging.error("Error: Couldn't connect to " + str(db_name) + " with fetch_and_parse: " + str(e1) + ".")
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_and_parse: " + str(e1) + ".")
     
     cursor = connection.cursor()
-    print("Started parsing: " + str(table_name) + ".")
+    logging.info("Started parsing: " + str(table_name) + ".")
     cursor.execute(db_create_table)
     attempts_to_reconnect = 0
     seconds = 5
@@ -36,30 +46,33 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
                     values = tuple(str(i[key]) if isinstance(i[key], list) else i[key] for key in db_keys)
                     cursor.execute(db_insert, values)
                 connection.commit()
-                print("Finished parsing: " + str(table_name) + ". | Rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + "\n")
+                logging.info("Finished parsing: " + str(table_name) + ". | Rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum))
                 break
 
-            elif response.status_code == 429:
-                raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
-            
+            elif response.status_code == 403:
+                logging.error("Error: Forbidden or missing API key. | status code: 403")
+                raise Exception("Error: Forbidden or missing API key. | status code: 403")
             elif response.status_code == 404:
+                logging.error("Error: Not found! | status code: 404")
                 raise Exception("Error: Not found! | status code: 404")
-            
+            elif response.status_code == 429:
+                logging.error("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
+                raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
+
             elif response.status_code == 503:
                 if attempts_to_reconnect == 4:
+                    logging.error("Error: Service is not available! Failed to reconnect 5 times. | status code: 503")
                     raise Exception("Error: Service is not available! Failed to reconnect 5 times. | status code: 503")
                 else:
                     attempts_to_reconnect += 1
-                    print("Error: Service is not available! Reattmpting.. | Attempt number: " + str(attempts_to_reconnect) +  " | status code: 503")
+                    logging.warning("Error: Service is not available! Reattmpting.. | Attempt number: " + str(attempts_to_reconnect) +  " | status code: 503")
                     time.sleep(seconds * (attempts_to_reconnect))
 
-            elif response.status_code == 403:
-                raise Exception("Error: Forbidden or missing API key. | status code: 403")
-            
             else:
+                logging.error("Error: One of the other 95316 status codes that I have no idea exists popped up! | status code: " + str(response.status_code))
                 raise Exception("Error: One of the other 95316 status codes that I have no idea exists popped up! | status code: " + str(response.status_code))
-            
         except requests.exceptions.ConnectionError as e2:
+            logging.error("Connection failed: " + str(e2) + ".")
             raise requests.exceptions.ConnectionError("Connection failed: " + str(e2) + ".")
 
 
@@ -70,6 +83,7 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
+        logging.error("Error: Couldn't connect to " + str(db_name) + " with fetch_nested: " + str(e1) + ".")
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with fetch_nested: " + str(e1) + ".")
     
     connection.row_factory = sqlite3.Row
@@ -78,18 +92,18 @@ def fetch_nested(db_name, parent_table_name, db_create_table, db_insert,  string
     nested = cursor.execute("SELECT " + str(stringified_key) + ", " + str(foreign_key) + " FROM " + str(parent_table_name)).fetchall()
 
     if nested:
-        print("Started fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + ".")
+        logging.info("Started fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + ".")
         for row in nested:
             if row[str(stringified_key)] is not None:
                 try:
                     un_nested = ast.literal_eval(row[str(stringified_key)])
                 except ValueError:
-                        print("Warning: Skipped one malformed row.")
+                        logging.warning("Warning: Skipped one malformed row.")
                         continue
                 for reading in un_nested:
                     cursor.execute(db_insert, (row[str(foreign_key)], reading["observedTime"], reading["kpIndex"], reading["source"]))
         connection.commit()
-        print("Finished fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + "." + "\n")
+        logging.info("Finished fetching nested: " + str(stringified_key) + " in: " + str(parent_table_name) + ".")
 
 
 
@@ -99,6 +113,7 @@ def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primar
     try:
         connection = sqlite3.connect(db_name)
     except sqlite3.OperationalError as e1:
+        logging.error("Error: Couldn't connect to " + str(db_name) + " with check_anomalies: " + str(e1) + ".")
         raise sqlite3.OperationalError("Error: Couldn't connect to " + str(db_name) + " with check_anomalies: " + str(e1) + ".")
     
     connection.row_factory = sqlite3.Row
@@ -106,19 +121,21 @@ def check_anomalies(db_name, table_name, execute_call, keys, primary_key, primar
     anomaly = cursor.execute(execute_call).fetchall()
 
     if anomaly:
-        print("---------" + "\n" + "WARNING! SIGNIFICANT ANOMALIES DETECTED!" + "\n" + "---------")
+        logging.warning("---------")
+        logging.warning("WARNING! SIGNIFICANT ANOMALIES DETECTED!")
+        logging.warning("---------")
         for row in anomaly:
-            print("anomalyTable: " + str(table_name))
+            logging.warning("anomalyTable: " + str(table_name))
             for key in keys:
-                print(str(key) + ": " + str(row[key]))
+                logging.warning(str(key) + ": " + str(row[key]))
             if primary_key and not primary_key2:
                 cursor.execute("UPDATE " + str(table_name) + " SET alerted = 1 WHERE " + str(primary_key) + " = ?", (str(row[primary_key]), ))
             elif primary_key and primary_key2:
                 cursor.execute("UPDATE " + str(table_name) + " SET alerted = 1 WHERE " + str(primary_key) + " = ? AND " + str(primary_key2) + " = ?", (str(row[primary_key]), str(row[primary_key2])))
-            print("---------")
+            logging.warning("---------")
         connection.commit()
     else:
-        print("No other anomalies detected in: " + str(table_name) + ".")
+        logging.info("No other anomalies detected in: " + str(table_name) + ".")
 
 
 
