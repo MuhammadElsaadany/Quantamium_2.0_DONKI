@@ -1,4 +1,4 @@
-import requests, os, sqlite3, ast
+import requests, os, sqlite3, ast, time
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,34 +16,46 @@ def fetch_and_parse(db_name, table_name, db_create_table, url, db_insert, db_key
     cursor = connection.cursor()
     print("Started parsing: " + str(table_name) + ".")
     cursor.execute(db_create_table)
+    attempts_to_reconnect = 0
+    seconds = 5
 
-    try:
-        response = requests.get(str(url) + api_key)
-        ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
-        ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", "Failed to load remaining rate limit!")
+    while attempts_to_reconnect < 5:
+        try:
+            response = requests.get(str(url) + api_key)
+            ratelimit_maximum = response.headers.get("X-Ratelimit-Limit", "Failed to load maximum rate limit!")
+            ratelimit_remaining = response.headers.get("X-Ratelimit-Remaining", "Failed to load remaining rate limit!")
 
-        if response.status_code == 200:
-            response_data = response.json()
-            for i in response_data:
-                values = tuple(str(i[key]) if isinstance(i[key], list) else i[key] for key in db_keys)
-                cursor.execute(db_insert, values)
-            connection.commit()
-            print("Finished parsing: " + str(table_name) + ". | Rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + "\n")
+            if response.status_code == 200:
+                response_data = response.json()
+                for i in response_data:
+                    values = tuple(str(i[key]) if isinstance(i[key], list) else i[key] for key in db_keys)
+                    cursor.execute(db_insert, values)
+                connection.commit()
+                print("Finished parsing: " + str(table_name) + ". | Rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + "\n")
+                break
 
-        elif response.status_code == 429:
-            raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
-        
-        elif response.status_code == 404:
-            raise Exception("Error: Not found! | status code: 404")
-        
-        elif response.status_code == 503:
-            raise Exception("Error: Service is not available! | status code: 503")
-        
-        else:
-            raise Exception("Error: One of the other 95316 status codes that I have no idea exists popped up! | status code: " + str(response.status_code))
-        
-    except requests.exceptions.ConnectionError as e2:
-        raise requests.exceptions.ConnectionError("Connection failed: " + str(e2) + ".")
+            elif response.status_code == 429:
+                raise Exception("Error: You've exceeded your rate limit: " + str(ratelimit_remaining) + " of " + str(ratelimit_maximum) + " | status code: 429")
+            
+            elif response.status_code == 404:
+                raise Exception("Error: Not found! | status code: 404")
+            
+            elif response.status_code == 503:
+                if attempts_to_reconnect == 4:
+                    raise Exception("Error: Service is not available! Failed to reconnect 5 times. | status code: 503")
+                else:
+                    attempts_to_reconnect += 1
+                    print("Error: Service is not available! Reattmpting.. | Attempt number: " + str(attempts_to_reconnect) +  " | status code: 503")
+                    time.sleep(seconds * (attempts_to_reconnect))
+
+            elif response.status_code == 403:
+                raise Exception("Error: Forbidden or missing API key. | status code: 403")
+            
+            else:
+                raise Exception("Error: One of the other 95316 status codes that I have no idea exists popped up! | status code: " + str(response.status_code))
+            
+        except requests.exceptions.ConnectionError as e2:
+            raise requests.exceptions.ConnectionError("Connection failed: " + str(e2) + ".")
 
 
 
