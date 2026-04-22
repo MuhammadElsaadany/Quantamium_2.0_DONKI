@@ -4,7 +4,7 @@ A script that fetches data using NASA DONKI API, parses data into clean SQL, all
 -------------------------------------------------------
 --------------- Which Data It Collects? ---------------
 -------------------------------------------------------
-- Currently it fetches 3 NASA DONKI API's: [Solar Flare (FLR)](https://en.wikipedia.org/wiki/Solar_flare), [Coronal Mass Ejection (CME)](https://en.wikipedia.org/wiki/Coronal_mass_ejection), [Geomagnetic Storm (GST)](https://en.wikipedia.org/wiki/Geomagnetic_storm).
+- Currently it fetches 3 NASA DONKI API's: [Solar Flare (FLR)](https://en.wikipedia.org/wiki/Solar_flare), [Coronal Mass Ejection (CME)](https://en.wikipedia.org/wiki/Coronal_mass_ejection) and [Geomagnetic Storm (GST)](https://en.wikipedia.org/wiki/Geomagnetic_storm).
 - Parses data and stores each of them under it's own table in a database.
 - Can be set to detect when specific readings are alarming.
 - Currently checks and warns user when:
