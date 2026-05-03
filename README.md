@@ -16,7 +16,7 @@ A script that fetches data using NASA DONKI API, parses data into clean SQL, all
 -------------------------------------------------
 --------------- How To Set It Up? ---------------
 -------------------------------------------------
-- git clone https://github.com/MuhammadElsaadany/Quantamium_2.0_DONKI
+- git clone https://github.com/MuhammadElsaadany/DONKI-Fetcher
 - Need Python (I developed it using [Python 3.11.9](https://www.python.org/downloads/release/python-3119/)) (Could have issues with dependencies in newer versions)
 - Write in the terminal: pip install -r requirements.txt
 - Need a .env file (inside the project folder!) that contains NASA_API_KEY=[your api from here](https://api.nasa.gov/)
